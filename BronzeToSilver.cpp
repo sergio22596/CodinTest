@@ -71,7 +71,7 @@ public:
     const int radius = 400;
     Point position = Point();
     int angle = 0;
-    int drifting = 0;
+    bool drifting = false;
     int used_boosts = 0;
     Point speed = Point();
     Point next_checkpoint = Point();
@@ -103,7 +103,7 @@ inline void Pod::UpdateNextCheckpoint(const Point& InNextCheckPoint)
 {
     if(next_checkpoint != InNextCheckPoint)
     {
-        drifting = 0;
+        drifting = false;
         next_checkpoint = InNextCheckPoint;
     }
 }
@@ -139,7 +139,7 @@ public:
     Point boost_moment = Point();
     int next_checkpoint_distance = 0;
     int checkpoint_num = 0;
-    int checkpoints_in_list = 0;
+    bool checkpoints_in_list = false;
 };
  
 bool RaceCircuit::IsNewCheckPoint(const Point& InCheckpoint)
@@ -182,9 +182,9 @@ void RaceCircuit::UpdateCheckpoints(const Point& InCheckpoint)
         next_checkpoint = InCheckpoint;
         Logger::LogError("NewCheckpoint");
     }
-    else if(InCheckpoint != next_checkpoint && checkpoints_in_list == 0)
+    else if(InCheckpoint != next_checkpoint && checkpoints_in_list == false)
     {
-        checkpoints_in_list = 1;
+        checkpoints_in_list = true;
         checkpoint_num = CheckPoints.size();
         CalcBoostMoment();
         Logger::LogError("BoostMovement");
@@ -215,8 +215,8 @@ void RaceCircuit::CalcBoostMoment()
  
     for(int i = 0; i < Size - 1; ++i)
     {
-        distances.emplace_back(MathHelpers::SquareDistance(CheckPoints[i], CheckPoints[(i+1) % checkpoint_num]));
-        distancesMap.emplace(MathHelpers::SquareDistance(CheckPoints[i], CheckPoints[(i+1) % checkpoint_num]), i);
+        distances.emplace_back(MathHelpers::Distance(CheckPoints[i], CheckPoints[(i+1) % checkpoint_num]));
+        distancesMap.emplace(MathHelpers::Distance(CheckPoints[i], CheckPoints[(i+1) % checkpoint_num]), i);
     }
  
     sort(distances.begin(), distances.end(), greater<int>());
@@ -240,7 +240,7 @@ string RaceCircuit::CalculateThrust()
     constexpr int MaxTurnAngle = 18;
     if(PlayerPod->angle > -MaxTurnAngle && PlayerPod->angle < MaxTurnAngle)
     {
-        if(PlayerPod->angle == 0 && next_checkpoint == boost_moment)
+        if(next_checkpoint == boost_moment)
         {
             return " BOOST";
         }
@@ -251,7 +251,7 @@ string RaceCircuit::CalculateThrust()
     }
  
     constexpr int CheckpointRadius = 400;
-    if(checkpoints_in_list == 1)
+    if(checkpoints_in_list == true)
     {
         thrust *= max(min(next_checkpoint_distance / (CheckpointRadius * 2), 1), 0);
     }
@@ -271,12 +271,12 @@ void RaceCircuit::Update()
         return;
     }
  
-    string thrust = " " + CalculateThrust();
+    const string thrust = " " + CalculateThrust();
  
     constexpr int DriftAngle = 6;
     if(MathHelpers::VectorLenght(PlayerPod->speed) * 3 > next_checkpoint_distance
-        && checkpoints_in_list == 1
-        && ((PlayerPod->angle > -DriftAngle && PlayerPod->angle < DriftAngle) || PlayerPod->drifting == 1))
+        && checkpoints_in_list == true
+        && ((PlayerPod->angle > -DriftAngle && PlayerPod->angle < DriftAngle) || PlayerPod->drifting == true))
     {
         const int index = GetCheckpointIndex(next_checkpoint);
         if(index == -1)
@@ -285,15 +285,17 @@ void RaceCircuit::Update()
             return;
         }
  
-        Point next_position = CheckPoints[(index + 1) % checkpoint_num];
-        PlayerPod->drifting = 1;
+        const Point next_position = CheckPoints[(index + 1) % checkpoint_num];
+        PlayerPod->drifting = true;
        
-        if(60 > MathHelpers::VectorLenght(PlayerPod->speed))
+		constexpr int minimal_drift_speed = 60;
+        if(minimal_drift_speed > MathHelpers::VectorLenght(PlayerPod->speed))
         {
-            PlayerPod->drifting = 0;
+            PlayerPod->drifting = false;
         }
- 
-        cout << next_position.x << " " << next_position.y << " " << 60 << endl;
+
+		constexpr int drift_speed = 40;
+        cout << next_position.x << " " << next_position.y << " " << drift_speed << endl;
     }
     else
     {
